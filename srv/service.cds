@@ -14,3 +14,5 @@ service AdminService  {
     entity AdmCustomers  as projection on db.Customers;
 
 }
+
+annotate ProcessorService.Incidents with @odata.draft.enabled;
