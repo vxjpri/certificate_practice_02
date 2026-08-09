@@ -12,6 +12,28 @@
     "start": "cds-serve",
     "watch-incident": "cds watch --open com.vxj03.incident/index.html?sap-ui-xx-viewCache=false --livereload false"
   },
+  "cds" : {
+    "requires": {
+      "[development]" : {
+        "auth" : {
+          "kind": "mocked",
+          "users": {
+            "alice" : {
+              "roles": ["support"]
+            },
+            "bob" : {
+              "roles": ["support"]
+            },
+            "incident.support@tester.sap.com" : {
+              "password": "abcd1234",
+              "roles": ["support"]
+            }
+          }
+        }
+      }
+    }
+  },
+
   "private": true,
   "workspaces": [
     "app/*"
