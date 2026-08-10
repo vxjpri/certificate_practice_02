@@ -2,38 +2,53 @@
   "name": "vj03_incdnt_mgmt",
   "version": "1.0.0",
   "dependencies": {
+    "@sap-cloud-sdk/connectivity": "^3.26.4",
+    "@sap-cloud-sdk/http-client": "^3.26.4",
+    "@sap-cloud-sdk/resilience": "^3.26.4",
+    "@sap-cloud-sdk/util": "^3.26.4",
     "@sap/cds": "^9"
   },
   "devDependencies": {
+    "@cap-js/cds-test": "^1.0.2",
     "@cap-js/sqlite": "^2.4",
     "cds-plugin-ui5": "^0.17.0"
   },
   "scripts": {
+    "test": "npx jest tests/test.js",
     "start": "cds-serve",
     "watch-incident": "cds watch --open com.vxj03.incident/index.html?sap-ui-xx-viewCache=false --livereload false"
   },
-  "cds" : {
+  "cds": {
     "requires": {
-      "[development]" : {
-        "auth" : {
+      "[development]": {
+        "auth": {
           "kind": "mocked",
           "users": {
-            "alice" : {
-              "roles": ["support"]
+            "alice": {
+              "roles": [
+                "support"
+              ]
             },
-            "bob" : {
-              "roles": ["support"]
+            "bob": {
+              "roles": [
+                "support"
+              ]
             },
-            "incident.support@tester.sap.com" : {
+            "incident.support@tester.sap.com": {
               "password": "abcd1234",
-              "roles": ["support"]
+              "roles": [
+                "support"
+              ]
             }
           }
         }
+      },
+      "API_BUSINESS_PARTNER": {
+        "kind": "odata-v2",
+        "model": "srv/external/API_BUSINESS_PARTNER"
       }
     }
   },
-
   "private": true,
   "workspaces": [
     "app/*"
