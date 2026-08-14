@@ -1,0 +1,184 @@
+_schema-version: 3.3.0
+ID: vj03_incdnt_mgmt
+version: 1.0.0
+description: "A simple CAP project."
+parameters:
+  enable-parallel-deployments: true
+  deploy_mode: html5-repo
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+modules:
+  - name: vj03_incdnt_mgmt-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      instances: 1
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm-ci
+    provides:
+      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: vj03_incdnt_mgmt-auth
+      - name: vj03_incdnt_mgmt-db
+      - name: vj03_incdnt_mgmt-destination
+
+  - name: vj03_incdnt_mgmt-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+    requires:
+      - name: vj03_incdnt_mgmt-db
+
+  - name: vj03_incdnt_mgmt-app-deployer
+    type: com.sap.application.content
+    path: gen
+    build-parameters:
+      build-result: app/
+      requires:
+        - name: vj03_incdnt_mgmtincident
+          artifacts:
+            - incident.zip
+          target-path: app/
+    requires:
+      - name: vj03_incdnt_mgmt-auth
+      - name: srv-api
+      - name: vj03_incdnt_mgmt-html5-repo-host
+        parameters:
+          content-target: true
+          config:
+            HTML5Runtime_enabled: true
+    parameters:
+      config:
+        destinations:
+          - Name: srv-api
+            URL: ~{srv-api/srv-url}
+            Authentication: NoAuthentication
+            Type: HTTP
+            ProxyType: Internet
+            HTML5.ForwardAuthToken: true
+            HTML5.DynamicDestination: true
+
+  - name: vj03_incdnt_mgmtincident
+    type: html5
+    path: app/incident
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm ci
+        - npm run build
+      supported-platforms:
+        []
+
+  - name: vj03_incdnt_mgmt-destinations
+    type: com.sap.application.content
+    requires:
+      - name: vj03_incdnt_mgmt-auth
+        parameters:
+          service-key:
+            name: vj03_incdnt_mgmt-auth-key
+      - name: vj03_incdnt_mgmt-html5-repo-host
+        parameters:
+          service-key:
+            name: vj03_incdnt_mgmt-html5-repo-host-key
+      - name: srv-api
+      - name: vj03_incdnt_mgmt-destination
+        parameters:
+          content-target: true
+    build-parameters:
+      no-source: true
+    parameters:
+      content:
+        instance:
+          existing_destinations_policy: update
+          destinations:
+            - Name: vj03_incdnt_mgmt-html5-repository
+              ServiceInstanceName: vj03_incdnt_mgmt-html5-repo-host
+              ServiceKeyName: vj03_incdnt_mgmt-html5-repo-host-key
+              sap.cloud.service: vj03_incdnt_mgmt.service
+            - Name: vj03_incdnt_mgmt-auth
+              Authentication: OAuth2UserTokenExchange
+              ServiceInstanceName: vj03_incdnt_mgmt-auth
+              ServiceKeyName: vj03_incdnt_mgmt-auth-key
+              sap.cloud.service: vj03_incdnt_mgmt.service
+  - name: vj03_incdnt_mgmt
+    type: approuter.nodejs
+    path: app/router
+    parameters:
+      keep-existing-routes: true
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api # must be used in xs-app.json as well
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: vj03_incdnt_mgmt-auth
+      - name: vj03_incdnt_mgmt-destination
+      - name: vj03_incdnt_mgmt-html5-runtime
+    provides:
+      - name: app-api
+        properties:
+          app-protocol: ${protocol}
+          app-uri: ${default-uri}
+
+resources:
+  - name: vj03_incdnt_mgmt-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: vj03_incdnt_mgmt-${org}-${space}
+        tenant-mode: dedicated
+        oauth2-configuration:
+          credential-types:
+            - "binding-secret"
+            - "x509"
+          redirect-uris:
+            - https://*~{app-api/app-uri}/**
+        role-collections:
+          - name: 'support (vj03_incdnt_mgmt ${org}-${space})'
+            description: 'generated'
+            role-template-references:
+              - '$XSAPPNAME.support'
+          - name: 'admin (vj03_incdnt_mgmt ${org}-${space})'
+            description: 'generated'
+            role-template-references:
+              - '$XSAPPNAME.admin'
+    requires:
+      - name: app-api
+  - name: vj03_incdnt_mgmt-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+  - name: vj03_incdnt_mgmt-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+    requires:
+      - name: srv-api
+
+  - name: vj03_incdnt_mgmt-html5-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+  - name: vj03_incdnt_mgmt-html5-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime
